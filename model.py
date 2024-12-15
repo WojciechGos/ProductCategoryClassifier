@@ -41,12 +41,10 @@ for fold, (train_index, test_index) in enumerate(kf.split(data)):
     fold_test_data.to_csv("ecommerce_fold{}.test".format(fold+1), columns=["labelled_text"], index=False, header=False)    
     model = fasttext.train_supervised(input="ecommerce_fold{}.train".format(fold+1), **params)
 
-    # print(model.get)
-    results = model.test("ecommerce_fold{}.test".format(fold+1), k=5)
+    results = model.test("ecommerce_fold{}.test".format(fold+1), k=1)
     model_save_path = f"model{fold+1}.bin"
     model.save_model(model_save_path)
-    # wynik = model.predict("book")
-    # print(wynik)
+
     print("\n\n\n result:")
     print(results)
     
@@ -62,4 +60,4 @@ avg_precision = sum(precisions) / len(precisions)
 avg_recalls = sum(recalls) / len(recalls)
 
 print("avarage precission (all folds): {}".format(avg_precision))
-print("avarage recall (all folds): {}".format(avg_precision))
+print("avarage recall (all folds): {}".format(avg_recalls))
