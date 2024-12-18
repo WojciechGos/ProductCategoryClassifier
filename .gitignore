@@ -10,3 +10,7 @@ ecommerce_fold2.train
 
 ecommerce_fold3.test
 ecommerce_fold3.train
+
+model1.bin
+model2.bin
+model3.bin

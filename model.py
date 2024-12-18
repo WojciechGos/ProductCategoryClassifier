@@ -20,44 +20,70 @@ data['labelled_text'] = data['labelled_text'].map(preprocess_text)
 kf = KFold(n_splits=3, shuffle=True, random_state=42)
 
 params = {
-    'epoch': 25,           # Number of epochs for training  // 5 15 25 45
-    'lr': 0.1,             # Learning rate
-    'dim': 50,             # Dimension of the word vectors
-    'wordNgrams': 2,       # Use unigrams and bigrams for n-grams
-    'bucket': 200000,      # Hash table size for subword information
-    'minCount': 1,         # Minimum frequency of words to consider
-    'loss': 'softmax'     # Type of loss function (use softmax for multi-class classification),
+    'lr': 0.2,             # Współczynnik uczenia
+    'dim': 300,            # Ustalony wymiar wektorów słów
+    'wordNgrams': 2,       # Ustalony wordNgrams (bigrams)
+    'bucket': 200000,      # Rozmiar tabeli haszującej dla sub-słow
+    'loss': 'ns',          # Funkcja straty: ns
+    'minCount': 2,         # Zmieniony minCount
 }
 
+epoch_values = [5, 10, 25, 50, 100]
 
-precisions = []
-recalls = []
+# Zmienna do zapisywania wyników
+results_list = []
 
-for fold, (train_index, test_index) in enumerate(kf.split(data)):
-    fold_train_data = data.iloc[train_index]
-    fold_test_data = data.iloc[test_index]
+# Pętla przez różne wartości liczby epok
+for epoch in epoch_values:
+    params['epoch'] = epoch  # Zmiana liczby epok
     
-    fold_train_data.to_csv("ecommerce_fold{}.train".format(fold+1), columns=["labelled_text"], index=False, header=False)
-    fold_test_data.to_csv("ecommerce_fold{}.test".format(fold+1), columns=["labelled_text"], index=False, header=False)    
-    model = fasttext.train_supervised(input="ecommerce_fold{}.train".format(fold+1), **params)
+    precisions = []
+    recalls = []
+    correct_predictions = []  # Lista na poprawnie zaklasyfikowane rekordy
 
-    results = model.test("ecommerce_fold{}.test".format(fold+1), k=1)
-    model_save_path = f"model{fold+1}.bin"
-    model.save_model(model_save_path)
+    # Pętla przez zbiory KFold
+    for fold, (train_index, test_index) in enumerate(kf.split(data)):
+        fold_train_data = data.iloc[train_index]
+        fold_test_data = data.iloc[test_index]
 
-    print("\n\n\n result:")
-    print(results)
-    
+        # Zapisanie danych do formatu odpowiedniego dla fastText
+        fold_train_data.to_csv("ecommerce_fold{}.train".format(fold+1), columns=["labelled_text"], index=False, header=False)
+        fold_test_data.to_csv("ecommerce_fold{}.test".format(fold+1), columns=["labelled_text"], index=False, header=False)
 
-    print("\nFold {}:".format(fold+1))
-    print("number of correct predicts: {}".format(results[0]))
-    print("precision: {}".format(results[1]))
-    print("recall: {}".format(results[2]))
-    precisions.append(results[1])
-    recalls.append(results[2])
+        # Trening modelu
+        model = fasttext.train_supervised(input="ecommerce_fold{}.train".format(fold+1), **params)
 
-avg_precision = sum(precisions) / len(precisions)
-avg_recalls = sum(recalls) / len(recalls)
+        # Testowanie modelu
+        results = model.test("ecommerce_fold{}.test".format(fold+1), k=1)
 
-print("avarage precission (all folds): {}".format(avg_precision))
-print("avarage recall (all folds): {}".format(avg_recalls))
+        # Zbieranie poprawnie zaklasyfikowanych rekordów
+        correct_predictions.append(results[0])  # Zapisywanie liczby poprawnych przewidywań dla każdego folda
+
+        # Wyświetlanie wyników
+        print("\n\n\n result:")
+        print(results)
+
+        print("\nFold {}:".format(fold+1))
+        print("number of correct predicts: {}".format(results[0]))
+        print("precision: {}".format(results[1]))
+        print("recall: {}".format(results[2]))
+
+        precisions.append(results[1])
+        recalls.append(results[2])
+
+    # Obliczenie średnich precyzji i recall dla tej liczby epok
+    avg_precision = sum(precisions) / len(precisions)
+    avg_recall = sum(recalls) / len(recalls)
+    avg_correct_predictions = sum(correct_predictions) / len(correct_predictions)
+
+    results_list.append({
+        'epoch': epoch,
+        'avg_precision': avg_precision,
+        'avg_recall': avg_recall,
+        'correct_predictions': avg_correct_predictions 
+    })
+
+results_df = pd.DataFrame(results_list)
+results_df.to_csv('fasttext_epoch_comparison.csv', index=False)
+
+print("\n\nFinal Results saved to 'fasttext_epoch_comparison.csv'")
